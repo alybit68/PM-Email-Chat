@@ -1,0 +1,29 @@
+{
+  "_comment": "A filled-in example. Copy entries into contacts.json and adjust.",
+  "contacts": [
+    {
+      "key": "sara",
+      "name": "Sara Diaz",
+      "email": "sara.diaz@example.com",
+      "aliases": ["sara d", "sarah diaz"],
+      "groups": ["dev-team"],
+      "notes": "Backend lead. Voice notes often say just 'Sara'."
+    },
+    {
+      "key": "raj",
+      "name": "Raj Patel",
+      "email": "raj.patel@example.com",
+      "groups": ["dev-team", "leads"]
+    },
+    {
+      "key": "finance",
+      "name": "Finance Inbox",
+      "email": "finance@example.com",
+      "aliases": ["accounts", "the finance team"]
+    }
+  ],
+  "groups": {
+    "dev-team": { "members": ["sara", "raj"] },
+    "leads": { "members": ["raj"] }
+  }
+}

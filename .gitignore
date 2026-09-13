@@ -1,0 +1,16 @@
+# Secrets — never commit these
+.env
+*.pem
+*.key
+
+# Draft scratch space. Sent mail is recorded in history/sent.jsonl, which IS
+# committed — the container is ephemeral and that log is the audit trail.
+drafts/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
