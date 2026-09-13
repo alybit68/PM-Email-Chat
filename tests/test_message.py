@@ -13,7 +13,8 @@ class TestMessage(TempEnv):
         self.config = Config.load()
 
     def valid(self, **kwargs) -> Message:
-        base = dict(subject="Subject", body="Body", to=["Sara <sara@example.com>"])
+        base = dict(subject="[Bit68 - Internal] - Subject", body="Body",
+                    to=["Sara <sara@example.com>"])
         base.update(kwargs)
         return Message(**base)
 
@@ -25,7 +26,9 @@ class TestMessage(TempEnv):
         self.assertEqual(len(problems), 3)  # no To, no subject, no body
 
     def test_newline_in_subject_is_refused(self):
-        problems = self.valid(subject="Hi\nBcc: attacker@evil.com").validate(self.config)
+        problems = self.valid(
+            subject="[Bit68 - Internal] - Hi\nBcc: attacker@evil.com"
+        ).validate(self.config)
         self.assertTrue(any("Newline" in p for p in problems))
 
     def test_newline_in_recipient_is_refused(self):

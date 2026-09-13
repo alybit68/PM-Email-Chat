@@ -10,6 +10,11 @@ from pathlib import Path
 
 from .config import Config
 from .contacts import EMAIL_RE
+from .subject import (
+    convention_enforced,
+    follows_convention,
+    explain as explain_subject,
+)
 from .errors import SendBlocked
 
 
@@ -51,6 +56,11 @@ class Message:
             problems.append("No To: recipient.")
         if not self.subject.strip():
             problems.append("Subject is empty.")
+        elif convention_enforced() and not follows_convention(self.subject):
+            problems.append(
+                f"Subject {self.subject!r} does not follow the house format. "
+                + explain_subject()
+            )
         if not self.body.strip() and not self.html.strip():
             problems.append("Body is empty.")
 

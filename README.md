@@ -139,6 +139,26 @@ python3 -m pmail history
 
 ---
 
+## Subject lines
+
+Every subject is built to the house format:
+
+```
+[Bit68 - Oakwood] - Release moved to Friday
+[Bit68 - Internal] - Offsite dates
+```
+
+You don't type the prefix. Say the project in the voice note and Claude passes
+`--project "Oakwood"`; say it's internal and it passes `--internal` (the word
+"internal", "in-house" or "the team" in a note is picked up automatically). A
+draft whose subject doesn't match the format is refused at send time, so it
+can't be forgotten in a rush.
+
+Change the org name with `PMAIL_SUBJECT_ORG=Acme`, or turn the rule off
+entirely with `PMAIL_SUBJECT_CONVENTION=0`.
+
+---
+
 ## What stops the wrong email going out
 
 | Guard | What it does |
@@ -150,6 +170,7 @@ python3 -m pmail history
 | Domain allowlist | `PMAIL_ALLOWED_DOMAINS=acme.com` refuses everything outside those domains. |
 | Recipient cap | `PMAIL_MAX_RECIPIENTS` (default 25) catches a mis-parsed group blast. |
 | Re-send lock | A sent draft will not send again without `--resend`. |
+| Subject format | A subject outside `[Bit68 - <project>] - <title>` is refused. |
 | Audit log | Every send is appended to `history/sent.jsonl` and committed. |
 
 And the one that matters most: Claude shows you the full draft and waits for

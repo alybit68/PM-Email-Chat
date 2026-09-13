@@ -47,6 +47,15 @@ user verbatim; do not pick for them.
 Commit `contacts.json` afterwards, or the next session will not know them.
 
 **4. Write the email yourself.**
+
+Every subject must read `[Bit68 - <project>] - <title>`, with `Internal` in
+the project slot for internal mail. Do not hand-type the prefix — pass
+`--project "<name>"` or `--internal` and the tool builds it. Work out which
+from the voice note: a named client or project goes in the slot, anything
+addressed to colleagues is `--internal`. If the note names neither and you
+cannot tell, ask which project it belongs to; a draft without a conforming
+subject will not send.
+
 The parser's `body hint` is raw dictation, not an email. You write the actual
 prose: a real subject line, a clean opening, the substance of what they said,
 a sign-off in their voice. Keep their meaning and their decisions exactly —
@@ -56,9 +65,13 @@ or apologies they did not say.
 ```bash
 python3 -m pmail draft new \
   --vn "<transcript>" \
+  --project "Oakwood" \
   --subject "Release moved to Friday" \
   --body-file /tmp/body.txt
 ```
+
+That produces `[Bit68 - Oakwood] - Release moved to Friday`. Editing a draft's
+title later keeps its project, so `draft edit <id> --subject "..."` is safe.
 
 Add `--to/--cc/--bcc` to override the parsed routing, `--attach` for files,
 `--urgent` for priority headers.

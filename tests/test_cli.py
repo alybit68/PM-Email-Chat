@@ -22,7 +22,8 @@ class TestCli(TempEnv):
         code, out, _ = run(
             "draft", "new",
             "--vn", "Email Sara and Raj about the release, cc finance.",
-            "--subject", "Release moved", "--body", "It slipped to Friday.",
+            "--subject", "Release moved", "--project", "Oakwood",
+            "--body", "It slipped to Friday.",
             *extra,
         )
         self.assertEqual(code, 0, out)
@@ -85,7 +86,8 @@ class TestCli(TempEnv):
         self.assertEqual(code, 0)
         self.assertIn("Sent.", out)
         self.assertEqual(Draft.load(draft_id).status, "sent")
-        self.assertEqual(audit.tail()[0]["subject"], "Release moved")
+        self.assertEqual(audit.tail()[0]["subject"],
+                         "[Bit68 - Oakwood] - Release moved")
 
     def test_resending_needs_an_explicit_flag(self):
         draft_id = self.new_draft()
@@ -125,7 +127,8 @@ class TestCli(TempEnv):
                          "--subject", "New subject")
         self.assertEqual(code, 0)
         draft = Draft.load(draft_id)
-        self.assertEqual(draft.message.subject, "New subject")
+        # Editing the title keeps the project the draft already carried.
+        self.assertEqual(draft.message.subject, "[Bit68 - Oakwood] - New subject")
         self.assertIn("sam@example.com", draft.message.to[0])
 
     def test_draft_edit_rejects_an_unknown_recipient(self):

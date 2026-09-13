@@ -70,6 +70,10 @@ _SUBJECT_PATTERNS = [
     rf"\b(?:about|regarding)\s+(?P<t>.+?)(?=\s*[,.]?\s*(?:{_BODY_STOP})\b|\s+and\s+|{_SENTENCE_END})",
 ]
 
+_INTERNAL = re.compile(
+    r"\b(internal(?:ly)?|in-?house|to the team|our team|internal note)\b", re.I
+)
+
 _URGENT = re.compile(
     r"\b(urgent|asap|as soon as possible|high priority|right away|immediately)\b",
     re.I,
@@ -132,6 +136,7 @@ class ParsedVN:
     subject_hint: str = ""
     body_hint: str = ""
     urgent: bool = False
+    internal: bool = False
     literal_addresses: list[str] = field(default_factory=list)
 
     def is_empty(self) -> bool:
@@ -187,5 +192,6 @@ def parse(text: str) -> ParsedVN:
         subject_hint=subject_hint,
         body_hint=body_hint,
         urgent=bool(_URGENT.search(normalised)),
+        internal=bool(_INTERNAL.search(normalised)),
         literal_addresses=EMAIL_RE.findall(normalised),
     )

@@ -67,6 +67,16 @@ class TestAddressBook(TempEnv):
         self.assertEqual(normalise_handle("Sara from RE/MAX"), "sara remax")
         self.assertEqual(normalise_handle("Sara at Re-Max"), "sara remax")
 
+    def test_saving_preserves_the_files_own_explanatory_comment(self):
+        import json
+        path = self.tmp / "commented.json"
+        path.write_text(json.dumps({"_comment": "keep me", "contacts": []}),
+                        encoding="utf-8")
+        book = AddressBook.load(path)
+        self.assertEqual(book.comment, "keep me")
+        book.save(path)
+        self.assertEqual(json.loads(path.read_text())["_comment"], "keep me")
+
     def test_roundtrip_save_and_load(self):
         path = self.tmp / "out.json"
         self.book.save(path)

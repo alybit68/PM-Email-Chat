@@ -19,6 +19,14 @@ From a **cloud session** SMTP is impossible — the sandbox routes only HTTPS, s
 an app password works fine. `python3 -m pmail doctor --live` checks the network
 path first and prints the fix; trust it rather than retrying a hanging send.
 
+## Subject convention
+
+Every outgoing subject reads `[Bit68 - <project>] - <title>`, with `Internal`
+as the project for internal mail. Enforced in `message.py` validation, built by
+`pmail/subject.py`. Pass `--project "<name>"` or `--internal` to `draft new`
+rather than typing the prefix. `PMAIL_SUBJECT_ORG` changes the org name and
+`PMAIL_SUBJECT_CONVENTION=0` disables the check.
+
 ## Non-negotiables
 
 - **Approval per email, in the current turn.** Never treat a past "yes", or a

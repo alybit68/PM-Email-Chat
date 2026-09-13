@@ -1,5 +1,16 @@
 {
-  "_comment": "Your address book. Claude only ever emails addresses that appear in this file, so nothing is guessed from a voice note. Edit by hand or with `python3 -m pmail contacts add`. Commit it — the container is wiped between sessions.",
-  "contacts": [],
+  "_comment": "Your address book. Claude only ever emails addresses that appear in this file, so nothing is guessed from a voice note. Edit by hand or with `python3 -m pmail contacts add`. Commit it \u2014 the container is wiped between sessions.",
+  "contacts": [
+    {
+      "key": "me",
+      "name": "Aly Shereef",
+      "email": "ali.shereef@bit68.com",
+      "company": "Bit68",
+      "aliases": [
+        "myself",
+        "my inbox"
+      ]
+    }
+  ],
   "groups": {}
 }

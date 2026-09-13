@@ -80,10 +80,19 @@ class Contact:
         return {p for p in parts if p}
 
 
+DEFAULT_COMMENT = (
+    "Your address book. Claude only ever emails addresses that appear in this "
+    "file, so nothing is guessed from a voice note. Edit by hand or with "
+    "`python3 -m pmail contacts add`. Commit it — the container is wiped "
+    "between sessions."
+)
+
+
 @dataclass
 class AddressBook:
     contacts: list[Contact] = field(default_factory=list)
     groups: dict[str, list[str]] = field(default_factory=dict)
+    comment: str = DEFAULT_COMMENT
 
     # ---- persistence ------------------------------------------------------
 
@@ -118,12 +127,17 @@ class AddressBook:
                 if contact.key not in members:
                     members.append(contact.key)
 
-        return cls(contacts=contacts, groups=groups)
+        return cls(
+            contacts=contacts,
+            groups=groups,
+            comment=data.get("_comment") or DEFAULT_COMMENT,
+        )
 
     def save(self, path: Path | None = None) -> Path:
         path = path or contacts_path()
         path.parent.mkdir(parents=True, exist_ok=True)
-        payload = {
+        payload: dict = {"_comment": self.comment} if self.comment else {}
+        payload |= {
             "contacts": [
                 {
                     k: v

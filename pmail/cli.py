@@ -18,6 +18,7 @@ from .drafts import Draft
 from .errors import PmailError
 from .message import Message, address_of
 from .senders import send as dispatch
+from .subject import format_subject, project_of
 
 
 def _read_text(inline: str | None, path: str | None) -> str:
@@ -95,6 +96,13 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             else:
                 from .senders.zoho_api import check_connection
             print(f"  ✓ {check_connection(config)}")
+            if config.transport == "api":
+                from .senders.zoho_api import sending_is_validated
+
+                ok, detail = sending_is_validated(config)
+                print(f"  {'✓' if ok else '✗'} {detail}")
+                if not ok:
+                    return 1
         except PmailError as exc:
             print(f"  ✗ {exc}")
             return 1
@@ -276,7 +284,11 @@ def _build_draft(args: argparse.Namespace) -> tuple[Draft, list[str]]:
     bcc = resolve(args.bcc, parsed.bcc, "bcc")
 
     body = _read_text(args.body, args.body_file) or parsed.body_hint
-    subject = args.subject or parsed.subject_hint
+    subject = format_subject(
+        args.subject or parsed.subject_hint,
+        project=args.project,
+        internal=args.internal or (parsed.internal and not args.project),
+    )
 
     message = Message(
         subject=subject,
@@ -356,8 +368,15 @@ def cmd_draft(args: argparse.Namespace) -> int:
                 return 1
             setattr(message, label, _format(contacts))
 
-        if args.subject is not None:
-            message.subject = args.subject
+        if args.subject is not None or args.project or args.internal:
+            # Changing only the title must not silently drop the project the
+            # draft already carried, so read it from the draft, not the title.
+            carried = project_of(message.subject)
+            message.subject = format_subject(
+                args.subject if args.subject is not None else message.subject,
+                project=args.project or (None if args.internal else carried),
+                internal=args.internal,
+            )
         if body := _read_text(args.body, args.body_file):
             message.body = body
         if args.reply_to is not None:
@@ -509,6 +528,10 @@ def build_parser() -> argparse.ArgumentParser:
     new.add_argument("--cc")
     new.add_argument("--bcc")
     new.add_argument("--subject")
+    new.add_argument("--project",
+        help="project or client name for the subject prefix")
+    new.add_argument("--internal", action="store_true",
+        help="use 'Internal' as the subject's project slot")
     new.add_argument("--body", help="body text inline")
     new.add_argument("--body-file", help="body file, or - for stdin")
     new.add_argument("--reply-to")
@@ -526,6 +549,10 @@ def build_parser() -> argparse.ArgumentParser:
     edit.add_argument("--cc")
     edit.add_argument("--bcc")
     edit.add_argument("--subject")
+    edit.add_argument("--project",
+        help="project or client name for the subject prefix")
+    edit.add_argument("--internal", action="store_true",
+        help="use 'Internal' as the subject's project slot")
     edit.add_argument("--body")
     edit.add_argument("--body-file")
     edit.add_argument("--reply-to")
