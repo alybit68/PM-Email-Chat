@@ -98,6 +98,10 @@ _ROUTING_TAIL = re.compile(
     re.I | re.S,
 )
 
+# "<name> from <company>" — the connector marks a qualified recipient rather
+# than a run-on clause.
+_QUALIFIED = re.compile(r"\b(from|at|of|من|في|عند)\b", re.I)
+
 _NOISE = {
     "", "the", "them", "him", "her", "everyone", "everybody", "all", "team",
     "guys", "folks", "people", "also", "too", "please", "him/her", "they",
@@ -115,8 +119,11 @@ def _split_recipients(blob: str) -> list[str]:
         piece = re.sub(r"^(?:to|and|also|plus|our|my|the)\s+", "", piece, flags=re.I)
         if piece.lower() in _NOISE or not piece:
             continue
-        # Guard against a run-on clause being read as a name.
-        if len(piece.split()) > 4 and not EMAIL_RE.search(piece):
+        # Guard against a run-on clause being read as a name. A company
+        # qualifier legitimately runs long ("Karim Gobde from mid sixty
+        # eight"), so allow more words when one is present.
+        limit = 8 if _QUALIFIED.search(piece) else 4
+        if len(piece.split()) > limit and not EMAIL_RE.search(piece):
             continue
         tokens.append(piece)
     return tokens

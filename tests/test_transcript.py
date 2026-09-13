@@ -84,6 +84,17 @@ class TestTranscriptParsing(unittest.TestCase):
         self.assertEqual(p.subject_hint, "Incident postmortem")
         self.assertEqual(p.body_hint, "the root cause was a bad config push.")
 
+    def test_company_qualified_names_may_run_long(self):
+        p = parse("Send an email to Karim Gobde from mid sixty eight and CC "
+                  "Lujan Khalil from mid sixty eight saying it works.")
+        self.assertEqual(p.to, ["Karim Gobde from mid sixty eight"])
+        self.assertEqual(p.cc, ["Lujan Khalil from mid sixty eight"])
+
+    def test_a_qualifier_does_not_licence_an_unlimited_clause(self):
+        p = parse("Send an email to everyone from the whole engineering "
+                  "leadership group across the region today about it.")
+        self.assertEqual(p.to, [])
+
     def test_run_on_clause_is_not_mistaken_for_a_name(self):
         p = parse("Send an email to the whole engineering leadership group today.")
         self.assertNotIn(
