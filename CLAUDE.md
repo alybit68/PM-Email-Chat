@@ -11,12 +11,22 @@ When the user sends a voice note or dictated text asking for an email, follow
 4. Show the full preview in chat and wait for an explicit yes.
 5. `python3 -m pmail send <id> --confirm`
 
+## Transport, by where the session runs
+
+From a **cloud session** SMTP is impossible — the sandbox routes only HTTPS, so
+`PMAIL_TRANSPORT=api` is the only option and the environment must allowlist
+`mail.zoho.<tld>` and `accounts.zoho.<tld>`. From a **local** checkout, SMTP with
+an app password works fine. `python3 -m pmail doctor --live` checks the network
+path first and prints the fix; trust it rather than retrying a hanging send.
+
 ## Non-negotiables
 
 - **Approval per email, in the current turn.** Never treat a past "yes", or a
   general "you can send my emails", as permission to send this one.
 - **Never invent an email address.** Addresses come from `contacts.json` or
-  from the transcript. An unrecognised name is a question for the user.
+  from the transcript. An unrecognised name is a question for the user. A
+  company name identifies *which* person, never their address — "Sara from
+  RE/MAX" still needs her address supplied once, then it is saved.
 - **Never claim something was sent unless the command succeeded.** Report the
   real error otherwise.
 
@@ -29,6 +39,7 @@ When the user sends a voice note or dictated text asking for an email, follow
 | `pmail/contacts.py` | Address book. The only source of email addresses. |
 | `pmail/message.py` | MIME building and the validation guards. |
 | `pmail/senders/` | `smtp.py` (default) and `zoho_api.py` (OAuth). |
+| `pmail/net.py` | Reachability probes that turn a hang into a named fix. |
 | `contacts.json` | The user's address book. **Commit changes to it.** |
 | `history/sent.jsonl` | Audit log of everything sent. **Committed.** |
 | `drafts/` | Scratch. Gitignored — drafts do not survive the session. |

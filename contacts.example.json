@@ -1,19 +1,27 @@
 {
-  "_comment": "A filled-in example. Copy entries into contacts.json and adjust.",
+  "_comment": "A filled-in example. Copy entries into contacts.json and adjust. 'company' is what makes 'Sara from RE/MAX' resolve to the right Sara.",
   "contacts": [
     {
-      "key": "sara",
+      "key": "sara-remax",
       "name": "Sara Diaz",
-      "email": "sara.diaz@example.com",
-      "aliases": ["sara d", "sarah diaz"],
-      "groups": ["dev-team"],
-      "notes": "Backend lead. Voice notes often say just 'Sara'."
+      "company": "RE/MAX",
+      "email": "sara.diaz@remax.example",
+      "aliases": ["sara d"],
+      "groups": ["listings"]
+    },
+    {
+      "key": "sara-c21",
+      "name": "Sara Kim",
+      "company": "Century 21",
+      "email": "sara.kim@century21.example",
+      "notes": "Different Sara. Always say the company in the voice note."
     },
     {
       "key": "raj",
       "name": "Raj Patel",
-      "email": "raj.patel@example.com",
-      "groups": ["dev-team", "leads"]
+      "company": "RE/MAX",
+      "email": "raj.patel@remax.example",
+      "groups": ["listings", "leads"]
     },
     {
       "key": "finance",
@@ -23,7 +31,7 @@
     }
   ],
   "groups": {
-    "dev-team": { "members": ["sara", "raj"] },
+    "listings": { "members": ["sara-remax", "raj"] },
     "leads": { "members": ["raj"] }
   }
 }

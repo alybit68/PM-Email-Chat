@@ -27,12 +27,22 @@ This shows who the parser thinks the mail is for, resolved against
 transcript. Check the resolution before moving on.
 
 **3. Handle unknown names — never invent an address.**
-If a name does not resolve, stop and ask the user for the address. Then:
+If a name does not resolve, stop and ask the user for the address. You cannot
+derive an address from a company name; "Sara from RE/MAX" identifies *which*
+Sara, it does not tell you her address. Ask once, save it, and it is known
+from then on:
 
 ```bash
-python3 -m pmail contacts add --key sara --name "Sara Diaz" \
-  --email sara@example.com --aliases "sara d" --groups dev-team
+python3 -m pmail contacts add --key sara-remax --name "Sara Diaz" \
+  --company "RE/MAX" --email sara.diaz@remax.example --groups listings
 ```
+
+Always set `--company` when the user mentions one — it is what keeps two
+people with the same first name apart. Pick a key that carries the company
+too (`sara-remax`, not `sara`).
+
+If a name is ambiguous, the tool names every candidate. Put that choice to the
+user verbatim; do not pick for them.
 
 Commit `contacts.json` afterwards, or the next session will not know them.
 
@@ -100,7 +110,15 @@ python3 -m pmail doctor --live       # verify credentials reach Zoho
 
 ## When sending fails
 
-`doctor --live` first. The usual causes, in order: `ZOHO_APP_PASSWORD` is a
+`doctor --live` first — it checks the network path before the credentials and
+prints the fix for whatever it finds.
+
+In a **cloud session**, SMTP cannot work: raw TCP is not routed out, so
+`PMAIL_TRANSPORT=api` is the only option, and the environment needs
+`mail.zoho.<tld>` and `accounts.zoho.<tld>` in its Allowed domains. Do not
+spend turns retrying SMTP there — report it and point at the README.
+
+Then the credential causes. The usual causes, in order: `ZOHO_APP_PASSWORD` is a
 login password rather than an app-specific password; `ZOHO_REGION` does not
 match the data centre the mailbox lives in; `ZOHO_ACCOUNT_TYPE` is `personal`
 for a paid custom-domain account (it needs `organization`, which switches the

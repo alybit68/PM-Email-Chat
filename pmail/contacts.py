@@ -17,6 +17,21 @@ from .errors import ResolutionError
 
 EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 
+# Words that join a person to their company in speech: "Sara from RE/MAX",
+# "Raj at Century 21". They carry no identity, so they are dropped before
+# matching and a spoken "Sara from RE/MAX" lines up with the stored contact.
+_CONNECTORS = {"from", "at", "of", "with", "in", "the", "our", "my"}
+
+
+def normalise_handle(value: str) -> str:
+    """Lowercase, strip punctuation, drop connector words.
+
+    "RE/MAX" and "remax" and "Re-Max" all collapse to the same key, which is
+    what makes a dictated company name usable as a lookup.
+    """
+    cleaned = re.sub(r"[^\w\s]", "", value.lower())
+    return " ".join(w for w in cleaned.split() if w not in _CONNECTORS)
+
 
 def contacts_path() -> Path:
     return Path(os.environ.get("PMAIL_CONTACTS") or REPO_ROOT / "contacts.json")
@@ -27,6 +42,7 @@ class Contact:
     key: str
     name: str
     email: str
+    company: str = ""
     aliases: tuple[str, ...] = ()
     groups: tuple[str, ...] = ()
     notes: str = ""
@@ -35,14 +51,32 @@ class Contact:
     def display(self) -> str:
         return f"{self.name} <{self.email}>" if self.name else self.email
 
+    @property
+    def label(self) -> str:
+        """Display name with the company, for disambiguating in previews."""
+        if self.company and self.name:
+            return f"{self.name} ({self.company}) <{self.email}>"
+        return self.display
+
     def handles(self) -> set[str]:
-        """Every string that should resolve to this contact, lowercased."""
-        parts = {self.key.lower(), self.email.lower()}
-        parts.update(a.lower() for a in self.aliases)
+        """Every normalised string that should resolve to this contact.
+
+        Includes company-qualified forms, so two people called Sara at
+        different firms stay distinguishable when a voice note says
+        "Sara from RE/MAX".
+        """
+        plain = {self.key, self.email, *self.aliases}
         if self.name:
-            parts.add(self.name.lower())
-            first = self.name.split()[0].lower()
-            parts.add(first)
+            plain.add(self.name)
+            plain.add(self.name.split()[0])
+
+        parts = {normalise_handle(p) for p in plain}
+
+        if self.company:
+            company = normalise_handle(self.company)
+            # "sara remax", "sara diaz remax", "sara d remax", ...
+            parts.update(f"{normalise_handle(p)} {company}" for p in plain if p)
+
         return {p for p in parts if p}
 
 
@@ -65,6 +99,7 @@ class AddressBook:
                 key=c["key"],
                 name=c.get("name", ""),
                 email=c["email"],
+                company=c.get("company", ""),
                 aliases=tuple(c.get("aliases", ())),
                 groups=tuple(c.get("groups", ())),
                 notes=c.get("notes", ""),
@@ -96,6 +131,7 @@ class AddressBook:
                         "key": c.key,
                         "name": c.name,
                         "email": c.email,
+                        "company": c.company,
                         "aliases": list(c.aliases),
                         "groups": list(c.groups),
                         "notes": c.notes,
@@ -150,10 +186,15 @@ class AddressBook:
         if members := self.group_members(token):
             return members
 
-        needle = token.lower()
+        needle = normalise_handle(token)
         matches = [c for c in self.contacts if needle in c.handles()]
         if len(matches) == 1:
             return matches
+
+        if not matches:
+            # A bare company name addresses everyone there, like a group.
+            if company := self.by_company(token):
+                return company
 
         if not matches:
             # Fall back to a prefix match on name/key so "Sam" finds "Samuel".
@@ -168,13 +209,21 @@ class AddressBook:
         if not matches:
             raise ResolutionError(
                 f"No contact, group, or address matches {token!r}. "
-                "Add them with: python3 -m pmail contacts add ..."
+                "I will not guess an address — tell me theirs and I will save it: "
+                "python3 -m pmail contacts add --key <handle> --email <address>"
             )
         raise ResolutionError(
             f"{token!r} is ambiguous — matches "
-            + ", ".join(f"{c.key} ({c.display})" for c in matches)
-            + ". Use the contact key instead."
+            + ", ".join(f"{c.key} ({c.label})" for c in matches)
+            + ". Say which one, or use the contact key."
         )
+
+    def by_company(self, name: str) -> list[Contact]:
+        """Everyone at a company. Lets a note say 'send it to RE/MAX'."""
+        needle = normalise_handle(name)
+        if not needle:
+            return []
+        return [c for c in self.contacts if normalise_handle(c.company) == needle]
 
     def resolve_all(self, tokens: list[str]) -> tuple[list[Contact], list[str]]:
         """Resolve many tokens, de-duplicating by address.
@@ -198,20 +247,36 @@ class AddressBook:
         Used to sanity-check a transcript: if the speaker names someone we did
         not route the mail to, the CLI surfaces it before anything is sent.
         """
-        lowered = text.lower()
+        lowered = normalise_handle(text)
         hits: dict[str, Contact] = {}
 
         for group in self.groups:
-            if re.search(rf"\b{re.escape(group.lower())}\b", lowered):
+            handle = normalise_handle(group)
+            if handle and re.search(rf"\b{re.escape(handle)}\b", lowered):
                 for contact in self.group_members(group):
                     hits.setdefault(contact.email.lower(), contact)
 
+        # Match each contact on its most specific handle. Single-word handles
+        # need a word boundary so "sam" does not match "same".
+        best: dict[str, tuple[Contact, tuple[int, int]]] = {}
         for contact in self.contacts:
-            for handle in contact.handles():
-                # Single-word handles need a word boundary; "sam" must not match
-                # "same". Multi-word handles are distinctive enough as substrings.
-                if re.search(rf"\b{re.escape(handle)}\b", lowered):
-                    hits.setdefault(contact.email.lower(), contact)
+            for handle in sorted(contact.handles(), key=len, reverse=True):
+                if match := re.search(rf"\b{re.escape(handle)}\b", lowered):
+                    best[contact.email.lower()] = (contact, match.span())
                     break
+
+        for email, (contact, span) in best.items():
+            # A bare "sara" sitting inside "sara remax" is that person, not
+            # every other Sara in the book — otherwise the not-routed warning
+            # fires for someone who was never mentioned.
+            shadowed = any(
+                other != email
+                and other_span[0] <= span[0]
+                and span[1] <= other_span[1]
+                and other_span[1] - other_span[0] > span[1] - span[0]
+                for other, (_, other_span) in best.items()
+            )
+            if not shadowed:
+                hits.setdefault(email, contact)
 
         return list(hits.values())

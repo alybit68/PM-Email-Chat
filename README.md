@@ -12,7 +12,42 @@ Python 3.9+, standard library only. Nothing to install.
 
 ---
 
+## Where you run it decides how it connects
+
+This matters more than anything else in the setup, so it comes first.
+
+| | Claude Code **on the web** (cloud session) | **Your own machine** (terminal / Desktop app) |
+| --- | --- | --- |
+| SMTP (port 465) | **Blocked.** Cloud sessions route only HTTPS through an egress proxy; raw TCP has no route out, and no allowlist setting changes that. | Works. |
+| Zoho REST API (HTTPS) | Works **after** you allowlist the Zoho hosts — see step 0. | Works. |
+| Credential needed | OAuth Self Client (client id, secret, refresh token). | An app password is enough. |
+
+So: **on the web, use `PMAIL_TRANSPORT=api`. Locally, SMTP with an app password
+is simpler.** `python3 -m pmail doctor --live` tells you which situation you are
+in and names the fix.
+
+---
+
 ## Setup
+
+### 0. (Cloud sessions only) Let the session reach Zoho
+
+At [claude.ai/code](https://claude.ai/code), in the row above the message box,
+select the cloud icon showing the environment name. Hover the environment,
+select the settings (gear) icon, set **Network access** to **Custom**, and add
+to **Allowed domains**:
+
+```
+mail.zoho.com
+accounts.zoho.com
+```
+
+Use your region's hosts if you are not on the US data centre (`mail.zoho.eu`,
+`mail.zoho.in`, …; Canada uses `mail.zohocloud.ca`). Tick **Also include
+default list of common package managers** so git and pip keep working.
+
+Then **start a new session** — a running session keeps the settings it started
+with.
 
 ### 1. Get a Zoho credential
 
@@ -28,8 +63,14 @@ Set `PMAIL_TRANSPORT=api`.
 
 ### 2. Set your environment variables
 
-For Claude Code on the web, set these in your **environment settings** so they
-survive container restarts. Locally, copy `.env.example` to `.env`.
+**On the web:** same dialog as step 0 — the **Environment variables** box.
+One `KEY=value` per line, `.env` format, no quotes needed. These are copied
+into each new session at startup, so they survive the container being wiped.
+Edit them and start a new session for the change to take effect.
+
+Note the values are visible to anyone who uses that environment.
+
+**Locally:** copy `.env.example` to `.env` and fill it in. It is gitignored.
 
 ```bash
 ZOHO_EMAIL=you@yourdomain.com
@@ -58,9 +99,17 @@ python3 -m pmail doctor --live
 This is what lets a voice note say "Sara" instead of an address.
 
 ```bash
-python3 -m pmail contacts add --key sara --name "Sara Diaz" \
-  --email sara.diaz@example.com --aliases "sara d" --groups dev-team
+python3 -m pmail contacts add --key sara-remax --name "Sara Diaz" \
+  --company "RE/MAX" --email sara.diaz@remax.example --groups listings
 ```
+
+`--company` is what lets a voice note say **"Sara from RE/MAX"** and reach the
+right person when you know two Saras. Spelling does not matter: `RE/MAX`,
+`remax`, `Re-Max` and `sara at remax` all resolve to the same contact. A bare
+company name addresses everyone there.
+
+If you say just "Sara" and two Saras are on file, nothing is sent — you get
+asked which one. An address is never guessed from a name or a company.
 
 See `contacts.example.json` for the file format, including groups. **Commit
 `contacts.json`** — the container is wiped between sessions.
@@ -115,7 +164,8 @@ your yes, every time.
 - **Drafts are ephemeral.** They live in the container. Contacts and history are
   committed; drafts are not.
 - **The API transport cannot attach files.** Zoho uploads attachments through a
-  separate endpoint. Use SMTP when you need attachments.
+  separate endpoint. Use SMTP when you need attachments — which, per the table
+  at the top, means running pmail from your own machine.
 
 ## Tests
 

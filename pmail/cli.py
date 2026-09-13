@@ -11,7 +11,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import __version__, audit, transcript
+from . import __version__, audit, net, transcript
 from .config import Config
 from .contacts import AddressBook, Contact
 from .drafts import Draft
@@ -36,7 +36,13 @@ def _csv(value: str | None) -> list[str]:
 
 
 def _format(contacts: list[Contact]) -> list[str]:
+    """Addresses as they go into headers — display name only, no company."""
     return [c.display for c in contacts]
+
+
+def _labels(contacts: list[Contact]) -> list[str]:
+    """Company-qualified, for showing a human which person was picked."""
+    return [c.label for c in contacts]
 
 
 # ---------------------------------------------------------------------------
@@ -71,8 +77,16 @@ def cmd_doctor(args: argparse.Namespace) -> int:
     print(f"  send switch     PMAIL_ALLOW_SEND={lock}")
 
     if args.live:
+        print("\n  checking the network path...")
+        reachable = net.probe(config)
+        print(f"  {'✓' if reachable.ok else '✗'} {reachable.summary}")
+        if reachable.hint:
+            print(f"      {reachable.hint}")
+        if not reachable.ok:
+            return 1
+
         if missing:
-            print("\n  skipping live check — credentials missing")
+            print("\n  skipping credential check — credentials missing")
             return 1
         print("\n  contacting Zoho...")
         try:
@@ -105,7 +119,7 @@ def cmd_contacts(args: argparse.Namespace) -> int:
         width = max(len(c.key) for c in book.contacts)
         for contact in sorted(book.contacts, key=lambda c: c.key):
             groups = f"  [{', '.join(contact.groups)}]" if contact.groups else ""
-            print(f"  {contact.key:<{width}}  {contact.display}{groups}")
+            print(f"  {contact.key:<{width}}  {contact.label}{groups}")
         if book.groups:
             print("\nGroups:")
             for name, members in sorted(book.groups.items()):
@@ -123,6 +137,7 @@ def cmd_contacts(args: argparse.Namespace) -> int:
             key=args.key,
             name=args.name or "",
             email=args.email,
+            company=args.company or "",
             aliases=tuple(_csv(args.aliases)),
             groups=tuple(_csv(args.groups)),
             notes=args.notes or "",
@@ -151,7 +166,7 @@ def cmd_contacts(args: argparse.Namespace) -> int:
 
     if args.contacts_command == "resolve":
         contacts, problems = book.resolve_all(args.tokens)
-        for line in _format(contacts):
+        for line in _labels(contacts):
             print(f"  ✓ {line}")
         for problem in problems:
             print(f"  ✗ {problem}", file=sys.stderr)
@@ -181,7 +196,7 @@ def cmd_parse(args: argparse.Namespace) -> int:
             continue
         contacts, problems = book.resolve_all(tokens)
         print(f"  {label}: {', '.join(tokens)}")
-        for line in _format(contacts):
+        for line in _labels(contacts):
             print(f"       ✓ {line}")
         for problem in problems:
             print(f"       ✗ {problem}")
@@ -239,7 +254,7 @@ def _build_draft(args: argparse.Namespace) -> tuple[Draft, list[str]]:
     for contact in book.mentioned_in(text):
         if contact.email.lower() not in routed:
             warnings.append(
-                f"{contact.display} is named in the voice note but is not a recipient."
+                f"{contact.label} is named in the voice note but is not a recipient."
             )
 
     draft = Draft(transcript=text, note=args.note or "", message=message)
@@ -421,6 +436,7 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--key", required=True, help="short handle, e.g. sara")
     add.add_argument("--email", required=True)
     add.add_argument("--name", help="display name")
+    add.add_argument("--company", help='employer, so "Sara from RE/MAX" resolves')
     add.add_argument("--aliases", help="comma-separated extra names heard in voice notes")
     add.add_argument("--groups", help="comma-separated groups, e.g. dev-team,leads")
     add.add_argument("--notes")

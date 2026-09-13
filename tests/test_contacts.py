@@ -1,6 +1,6 @@
 import unittest
 
-from pmail.contacts import AddressBook
+from pmail.contacts import AddressBook, Contact, normalise_handle
 from pmail.errors import ResolutionError
 
 from .helpers import TempEnv
@@ -61,6 +61,12 @@ class TestAddressBook(TempEnv):
         self.book.save(path)
         self.assertTrue(path.is_file())
 
+    def test_normalise_handle_collapses_punctuation_and_connectors(self):
+        for variant in ("RE/MAX", "re-max", "Re.Max", "  REMAX  "):
+            self.assertEqual(normalise_handle(variant), "remax", variant)
+        self.assertEqual(normalise_handle("Sara from RE/MAX"), "sara remax")
+        self.assertEqual(normalise_handle("Sara at Re-Max"), "sara remax")
+
     def test_roundtrip_save_and_load(self):
         path = self.tmp / "out.json"
         self.book.save(path)
@@ -70,6 +76,78 @@ class TestAddressBook(TempEnv):
             {c.email for c in reloaded.group_members("dev-team")},
             {"sara@example.com", "raj@example.com"},
         )
+
+
+class TestCompanyLookup(TempEnv):
+    """Two people share a first name; the company tells them apart."""
+
+    book = {
+        "contacts": [
+            {"key": "sara-remax", "name": "Sara Diaz", "company": "RE/MAX",
+             "email": "sara.diaz@remax.com"},
+            {"key": "sara-c21", "name": "Sara Kim", "company": "Century 21",
+             "email": "sara.kim@century21.com"},
+            {"key": "john-remax", "name": "John Ruiz", "company": "RE/MAX",
+             "email": "john.ruiz@remax.com"},
+        ],
+        "groups": {},
+    }
+
+    def setUp(self):
+        super().setUp()
+        self.book = AddressBook.load()
+
+    def test_company_qualified_name_picks_the_right_person(self):
+        for token in ("Sara from RE/MAX", "sara at remax", "Sara Re-Max",
+                      "sara diaz remax"):
+            resolved = self.book.resolve(token)
+            self.assertEqual(len(resolved), 1, token)
+            self.assertEqual(resolved[0].email, "sara.diaz@remax.com", token)
+
+    def test_the_other_company_gets_the_other_sara(self):
+        self.assertEqual(
+            self.book.resolve("Sara from Century 21")[0].email,
+            "sara.kim@century21.com",
+        )
+
+    def test_bare_first_name_is_ambiguous_not_guessed(self):
+        with self.assertRaises(ResolutionError) as ctx:
+            self.book.resolve("Sara")
+        self.assertIn("ambiguous", str(ctx.exception))
+        # The error must name both, so the user can pick.
+        self.assertIn("sara-remax", str(ctx.exception))
+        self.assertIn("sara-c21", str(ctx.exception))
+
+    def test_bare_company_addresses_everyone_there(self):
+        emails = {c.email for c in self.book.resolve("RE/MAX")}
+        self.assertEqual(emails, {"sara.diaz@remax.com", "john.ruiz@remax.com"})
+
+    def test_unknown_company_is_refused(self):
+        with self.assertRaises(ResolutionError):
+            self.book.resolve("Sara from Sotheby's")
+
+    def test_label_shows_the_company_but_headers_do_not(self):
+        sara = self.book.by_key("sara-remax")
+        self.assertEqual(sara.label, "Sara Diaz (RE/MAX) <sara.diaz@remax.com>")
+        self.assertEqual(sara.display, "Sara Diaz <sara.diaz@remax.com>")
+
+    def test_mentioned_in_matches_company_qualified_prose(self):
+        found = self.book.mentioned_in("Loop in Sara from RE/MAX on this.")
+        self.assertEqual([c.email for c in found], ["sara.diaz@remax.com"])
+
+    def test_a_bare_name_is_still_flagged_when_genuinely_separate(self):
+        # Two distinct mentions: both Saras really are named, so warn on both.
+        found = self.book.mentioned_in("Ask Sara Kim, and Sara from RE/MAX too.")
+        self.assertEqual(
+            {c.email for c in found},
+            {"sara.kim@century21.com", "sara.diaz@remax.com"},
+        )
+
+    def test_company_survives_a_save_and_load(self):
+        path = self.tmp / "out.json"
+        self.book.save(path)
+        reloaded = AddressBook.load(path)
+        self.assertEqual(reloaded.by_key("sara-remax").company, "RE/MAX")
 
 
 if __name__ == "__main__":
