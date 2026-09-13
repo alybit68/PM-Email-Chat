@@ -88,6 +88,49 @@ def access_token(config: Config) -> str:
     return token
 
 
+def exchange_code(config: Config, code: str) -> dict:
+    """Trade a Self Client authorization code for a lasting refresh token.
+
+    The code is single-use and expires in minutes, so the usual failure is
+    simply being too slow; that gets its own message rather than Zoho's.
+    """
+    if not (config.client_id and config.client_secret):
+        raise ConfigError(
+            "ZOHO_CLIENT_ID and ZOHO_CLIENT_SECRET must be set before "
+            "exchanging a code. Put them in your environment variables."
+        )
+
+    payload = _request(
+        f"{config.accounts_base}/oauth/v2/token",
+        method="POST",
+        form={
+            "code": code.strip(),
+            "client_id": config.client_id,
+            "client_secret": config.client_secret,
+            "grant_type": "authorization_code",
+        },
+    )
+
+    if refresh := payload.get("refresh_token"):
+        return payload
+
+    error = str(payload.get("error", payload))
+    if "invalid_code" in error:
+        raise SendFailed(
+            "Zoho rejected the code as invalid. Authorization codes are "
+            "single-use and expire in minutes — generate a fresh one in the "
+            "API console and paste it straight away."
+        )
+    if "invalid_client" in error:
+        raise SendFailed(
+            "Zoho rejected the client id/secret. The usual cause is a region "
+            f"mismatch: this tried {config.accounts_base}, so check that "
+            "ZOHO_REGION matches the data centre the Self Client was created "
+            "in."
+        )
+    raise SendFailed(f"Zoho did not return a refresh token: {error}")
+
+
 def account_id(config: Config, token: str) -> str:
     """The numeric account id the send endpoint is keyed on."""
     if config.account_id:

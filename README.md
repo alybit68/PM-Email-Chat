@@ -30,6 +30,9 @@ in and names the fix.
 
 ## Setup
 
+> **Setting this up on the web?** Follow [`docs/SETUP.md`](docs/SETUP.md) —
+> it is the same information as below, in click-by-click order.
+
 ### 0. (Cloud sessions only) Let the session reach Zoho
 
 At [claude.ai/code](https://claude.ai/code), in the row above the message box,

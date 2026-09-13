@@ -103,6 +103,46 @@ def cmd_doctor(args: argparse.Namespace) -> int:
 
 
 # ---------------------------------------------------------------------------
+# auth
+# ---------------------------------------------------------------------------
+
+
+def cmd_auth(args: argparse.Namespace) -> int:
+    """One-time: turn a Self Client authorization code into a refresh token."""
+    from .senders.zoho_api import account_id, exchange_code
+
+    config = Config.load()
+
+    reachable = net.probe_api(config)
+    if not reachable.ok:
+        print(f"✗ {reachable.summary}", file=sys.stderr)
+        if reachable.hint:
+            print(f"  {reachable.hint}", file=sys.stderr)
+        return 1
+
+    payload = exchange_code(config, args.code)
+    refresh = payload["refresh_token"]
+
+    account = ""
+    try:
+        account = account_id(config, payload["access_token"])
+    except PmailError:
+        pass  # Not fatal: the send path looks it up on demand.
+
+    print("Refresh token obtained. Add these to your environment variables")
+    print("(claude.ai/code -> cloud icon -> gear -> Environment variables),")
+    print("then start a NEW session:\n")
+    print("PMAIL_TRANSPORT=api")
+    print(f"ZOHO_REFRESH_TOKEN={refresh}")
+    if account:
+        print(f"ZOHO_ACCOUNT_ID={account}")
+    print("\nThe refresh token does not expire. It is now in this "
+          "conversation, so if you would rather it were not, revoke it in the "
+          "API console after pasting and run this again with a fresh code.")
+    return 0
+
+
+# ---------------------------------------------------------------------------
 # contacts
 # ---------------------------------------------------------------------------
 
@@ -428,6 +468,13 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--live", action="store_true",
                         help="also authenticate against Zoho (sends nothing)")
     doctor.set_defaults(func=cmd_doctor)
+
+    auth = sub.add_parser(
+        "auth", help="exchange a Zoho Self Client code for a refresh token"
+    )
+    auth.add_argument("--code", required=True,
+                      help="the authorization code from the API console")
+    auth.set_defaults(func=cmd_auth)
 
     contacts = sub.add_parser("contacts", help="manage the address book")
     csub = contacts.add_subparsers(dest="contacts_command", required=True)
