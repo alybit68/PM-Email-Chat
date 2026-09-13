@@ -21,6 +21,7 @@ from pathlib import Path
 from ..config import Config
 from ..errors import ConfigError, SendFailed
 from ..message import Message, address_of
+from ..subject import explain as explain_subject
 
 _TIMEOUT = 30
 
@@ -186,62 +187,44 @@ def send_api(message: Message, config: Config) -> str:
             data=body,
         )
     except SendFailed as exc:
-        raise _explain_send_failure(exc, config) from exc
+        raise _explain_send_failure(exc, config, message) from exc
 
     status = (payload.get("status") or {}).get("description", "sent")
     message_id = (payload.get("data") or {}).get("messageId", "")
     return f"api account={account} status={status} id={message_id}"
 
 
-def _explain_send_failure(exc: SendFailed, config: Config) -> SendFailed:
-    """Translate Zoho's mail-policy refusals into something actionable.
+def _explain_send_failure(
+    exc: SendFailed, config: Config, message: Message
+) -> SendFailed:
+    """Explain a Zoho mail-policy refusal.
 
-    Zoho reports an unvalidated From address as "Policy Violation in Subject",
-    which sends you hunting through the subject line for a problem that is not
-    there. The account API exposes the real cause as sendMailDetails.validated.
+    Zoho organisations can enforce an outbound policy on subject lines. When
+    one is set, every subject outside the house format is refused with
+    "554 5.7.7 Policy Violation in Subject" — and the message is accurate:
+    the subject really is the problem, not the account or the From address.
     """
     text = str(exc)
     if "5.7.7" not in text and "Policy Violation" not in text:
         return exc
 
-    address = address_of(config.email)
+    detail = ""
+    if "Subject" in text:
+        detail = (
+            "  The subject sent was:\n"
+            f"    {message.subject!r}\n"
+            f"  {explain_subject()}\n"
+            "  Rebuild the draft with --project \"<name>\" or --internal.\n"
+        )
+
     return SendFailed(
-        f"Zoho refused the message with a policy violation. Despite the "
-        f"wording, this is usually not about the subject line — it is "
-        f"{address} not being validated as a send-from address.\n"
-        "  Check, in order:\n"
-        "    1. mailadmin.zoho.com -> Domains: is the domain verified, with "
-        "MX, SPF and DKIM records all showing green?\n"
-        "    2. Zoho Mail -> Settings -> Mail Accounts: does the From address "
-        "show as verified?\n"
-        "    3. A newly created organization can be outbound-restricted for "
-        "the first day or so, and while a plan is mid-trial.\n"
-        "  Nothing was sent, and nothing in this tool needs changing — the "
-        "request reached Zoho and was refused at their mail-policy layer."
+        "Zoho refused the message under an outbound email policy set on your "
+        "organisation.\n"
+        f"{detail}"
+        "  Nothing was sent. The policy lives in the Zoho admin console "
+        "(Security & Compliance -> Email Policy), so an administrator can see "
+        "or change the exact rule."
     )
-
-
-def sending_is_validated(config: Config) -> tuple[bool, str]:
-    """Whether Zoho considers the From address cleared to send."""
-    token = access_token(config)
-    account = account_id(config, token)
-    payload = _request(f"{config.api_base}/api/accounts", token=token)
-
-    wanted = address_of(config.email).lower()
-    for entry in payload.get("data") or []:
-        if str(entry.get("accountId")) != str(account):
-            continue
-        for detail in entry.get("sendMailDetails", []):
-            if str(detail.get("fromAddress", "")).lower() == wanted:
-                if detail.get("validated"):
-                    return True, f"{wanted} is validated for sending"
-                return False, (
-                    f"{wanted} is NOT validated for sending — Zoho will refuse "
-                    "messages with a misleading 'Policy Violation in Subject'. "
-                    "Verify the domain and From address in the Zoho admin "
-                    "console."
-                )
-    return False, f"{wanted} was not found among this account's send addresses"
 
 
 def check_connection(config: Config) -> str:

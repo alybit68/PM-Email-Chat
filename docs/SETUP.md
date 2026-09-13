@@ -122,4 +122,4 @@ wait for your yes.
 | `invalid_client` | `ZOHO_REGION` does not match the data centre where you created the Self Client. |
 | `smtp.zoho.com:465 timed out` | `PMAIL_TRANSPORT=api` is missing, so it is still trying SMTP. |
 | `INVALID_OAUTHSCOPE` | The scope line in step 4 was wrong. Both scopes are needed, comma-separated, no spaces. |
-| `554 5.7.7 Policy Violation in Subject` | Despite the wording this is almost never the subject. It means the From address is not validated for sending. Run `python3 -m pmail doctor --live`, which checks this explicitly, then verify the domain (MX, SPF, DKIM) at mailadmin.zoho.com. |
+| `554 5.7.7 Policy Violation in Subject` | The wording is accurate: your organisation enforces an outbound policy on subject lines, and this subject did not match `[Bit68 - <project>] - <title>`. Rebuild the draft with `--project "<name>"` or `--internal`. The rule itself lives in the Zoho admin console under Security & Compliance → Email Policy. |

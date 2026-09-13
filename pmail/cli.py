@@ -96,13 +96,6 @@ def cmd_doctor(args: argparse.Namespace) -> int:
             else:
                 from .senders.zoho_api import check_connection
             print(f"  ✓ {check_connection(config)}")
-            if config.transport == "api":
-                from .senders.zoho_api import sending_is_validated
-
-                ok, detail = sending_is_validated(config)
-                print(f"  {'✓' if ok else '✗'} {detail}")
-                if not ok:
-                    return 1
         except PmailError as exc:
             print(f"  ✗ {exc}")
             return 1

@@ -157,6 +157,11 @@ can't be forgotten in a rush.
 Change the org name with `PMAIL_SUBJECT_ORG=Acme`, or turn the rule off
 entirely with `PMAIL_SUBJECT_CONVENTION=0`.
 
+This is not only a house style. The Zoho organisation enforces it as an
+outbound email policy, so a subject outside the format is refused by the mail
+server with `554 5.7.7 Policy Violation in Subject`. Enforcing it locally means
+you find out while drafting rather than at send time.
+
 ---
 
 ## What stops the wrong email going out

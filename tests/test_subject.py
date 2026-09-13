@@ -101,3 +101,32 @@ class TestInternalDetection(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestPolicyViolationExplanation(TempEnv):
+    """Zoho's outbound policy refusals should name the real cause."""
+
+    def setUp(self):
+        super().setUp()
+        os.environ["PMAIL_TRANSPORT"] = "api"
+
+    def _explain(self, raw, subject="Bare subject"):
+        from pmail.errors import SendFailed
+        from pmail.senders.zoho_api import _explain_send_failure
+
+        message = Message(subject=subject, body="x", to=["a@b.com"])
+        return str(_explain_send_failure(SendFailed(raw), Config.load(), message))
+
+    def test_subject_policy_violation_names_the_format_and_the_subject(self):
+        text = self._explain(
+            'HTTP 500: {"moreInfo":"554 5.7.7 Could not send mail : '
+            'Policy Violation in Subject "}'
+        )
+        self.assertIn("outbound email policy", text)
+        self.assertIn("Bare subject", text)
+        self.assertIn("[Bit68 - <project>] - <title>", text)
+        self.assertIn("--internal", text)
+
+    def test_an_unrelated_failure_is_passed_through_untouched(self):
+        raw = "HTTP 401: invalid token"
+        self.assertEqual(self._explain(raw), raw)
