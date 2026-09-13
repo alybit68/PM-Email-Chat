@@ -179,6 +179,7 @@ def cmd_contacts(args: argparse.Namespace) -> int:
             name=args.name or "",
             email=args.email,
             company=args.company or "",
+            company_aliases=tuple(_csv(args.company_aliases)),
             aliases=tuple(_csv(args.aliases)),
             groups=tuple(_csv(args.groups)),
             notes=args.notes or "",
@@ -293,6 +294,13 @@ def _build_draft(args: argparse.Namespace) -> tuple[Draft, list[str]]:
         attachments=list(args.attach or []),
         urgent=args.urgent or parsed.urgent,
     )
+
+    if parsed.needs_manual_routing and not args.to:
+        warnings.append(
+            "This voice note is in Arabic and no recipients were understood "
+            "from it. Routing is not parsed from Arabic — read the note and "
+            "pass --to explicitly rather than trusting this draft."
+        )
 
     # Cross-check: did the speaker name someone the mail is not going to?
     routed = {address_of(r).lower() for r in message.all_recipients}
@@ -496,6 +504,8 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--email", required=True)
     add.add_argument("--name", help="display name")
     add.add_argument("--company", help='employer, so "Sara from RE/MAX" resolves')
+    add.add_argument("--company-aliases",
+        help="other spellings of the company, e.g. Arabic: ريماكس")
     add.add_argument("--aliases", help="comma-separated extra names heard in voice notes")
     add.add_argument("--groups", help="comma-separated groups, e.g. dev-team,leads")
     add.add_argument("--notes")

@@ -70,6 +70,16 @@ _SUBJECT_PATTERNS = [
     rf"\b(?:about|regarding)\s+(?P<t>.+?)(?=\s*[,.]?\s*(?:{_BODY_STOP})\b|\s+and\s+|{_SENTENCE_END})",
 ]
 
+# Arabic (including Egyptian dialect) keywords. Routing is deliberately NOT
+# parsed from Arabic: attached prepositions ("لسارة" = "to Sara") and dialect
+# make regex extraction unreliable, and a wrong recipient cannot be recalled.
+# Instead Arabic is detected and flagged so the caller supplies --to directly.
+ARABIC_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
+
+_INTERNAL_AR = re.compile(r"(داخلي|داخلية|داخليا|للفريق|لفريق العمل|بينا)")
+
+_URGENT_AR = re.compile(r"(مستعجل|عاجل|ضروري|بسرعة|حالا|فورا|في أسرع وقت)")
+
 _INTERNAL = re.compile(
     r"\b(internal(?:ly)?|in-?house|to the team|our team|internal note)\b", re.I
 )
@@ -137,6 +147,8 @@ class ParsedVN:
     body_hint: str = ""
     urgent: bool = False
     internal: bool = False
+    arabic: bool = False
+    needs_manual_routing: bool = False
     literal_addresses: list[str] = field(default_factory=list)
 
     def is_empty(self) -> bool:
@@ -184,6 +196,8 @@ def parse(text: str) -> ParsedVN:
             body_hint = _ROUTING_TAIL.sub("", body_hint).strip()
             break
 
+    arabic = bool(ARABIC_RE.search(text))
+
     return ParsedVN(
         text=text,
         to=to,
@@ -191,7 +205,11 @@ def parse(text: str) -> ParsedVN:
         bcc=bcc,
         subject_hint=subject_hint,
         body_hint=body_hint,
-        urgent=bool(_URGENT.search(normalised)),
-        internal=bool(_INTERNAL.search(normalised)),
+        urgent=bool(_URGENT.search(normalised)) or bool(_URGENT_AR.search(text)),
+        internal=bool(_INTERNAL.search(normalised)) or bool(_INTERNAL_AR.search(text)),
+        arabic=arabic,
+        # An Arabic note that yielded no recipients has not been understood,
+        # which is different from a note that named nobody. Say so loudly.
+        needs_manual_routing=arabic and not (to or cc or bcc),
         literal_addresses=EMAIL_RE.findall(normalised),
     )

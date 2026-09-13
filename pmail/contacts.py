@@ -20,7 +20,15 @@ EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+\.[\w.-]+")
 # Words that join a person to their company in speech: "Sara from RE/MAX",
 # "Raj at Century 21". They carry no identity, so they are dropped before
 # matching and a spoken "Sara from RE/MAX" lines up with the stored contact.
-_CONNECTORS = {"from", "at", "of", "with", "in", "the", "our", "my"}
+_CONNECTORS = {
+    "from", "at", "of", "with", "in", "the", "our", "my",
+    # Arabic equivalents, so "سارة من ريماكس" matches the same contact as
+    # "Sara from RE/MAX".
+    "من", "في", "عند", "بتاع", "بتاعة", "بتاعت", "لدى", "ال",
+}
+
+# Arabic-Indic digits, so "بت٦٨" and "بت68" are the same company.
+_ARABIC_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 
 
 def normalise_handle(value: str) -> str:
@@ -29,7 +37,7 @@ def normalise_handle(value: str) -> str:
     "RE/MAX" and "remax" and "Re-Max" all collapse to the same key, which is
     what makes a dictated company name usable as a lookup.
     """
-    cleaned = re.sub(r"[^\w\s]", "", value.lower())
+    cleaned = re.sub(r"[^\w\s]", "", value.lower().translate(_ARABIC_DIGITS))
     return " ".join(w for w in cleaned.split() if w not in _CONNECTORS)
 
 
@@ -43,6 +51,7 @@ class Contact:
     name: str
     email: str
     company: str = ""
+    company_aliases: tuple[str, ...] = ()
     aliases: tuple[str, ...] = ()
     groups: tuple[str, ...] = ()
     notes: str = ""
@@ -72,9 +81,12 @@ class Contact:
 
         parts = {normalise_handle(p) for p in plain}
 
-        if self.company:
-            company = normalise_handle(self.company)
-            # "sara remax", "sara diaz remax", "sara d remax", ...
+        # Every spelling of the company, so a note in either language lands on
+        # the same person: "Sara from RE/MAX" and "سارة من ريماكس".
+        for spelling in (self.company, *self.company_aliases):
+            company = normalise_handle(spelling)
+            if not company:
+                continue
             parts.update(f"{normalise_handle(p)} {company}" for p in plain if p)
 
         return {p for p in parts if p}
@@ -109,6 +121,7 @@ class AddressBook:
                 name=c.get("name", ""),
                 email=c["email"],
                 company=c.get("company", ""),
+                company_aliases=tuple(c.get("company_aliases", ())),
                 aliases=tuple(c.get("aliases", ())),
                 groups=tuple(c.get("groups", ())),
                 notes=c.get("notes", ""),
@@ -146,6 +159,7 @@ class AddressBook:
                         "name": c.name,
                         "email": c.email,
                         "company": c.company,
+                        "company_aliases": list(c.company_aliases),
                         "aliases": list(c.aliases),
                         "groups": list(c.groups),
                         "notes": c.notes,
@@ -237,7 +251,12 @@ class AddressBook:
         needle = normalise_handle(name)
         if not needle:
             return []
-        return [c for c in self.contacts if normalise_handle(c.company) == needle]
+        return [
+            c
+            for c in self.contacts
+            if needle
+            in {normalise_handle(s) for s in (c.company, *c.company_aliases) if s}
+        ]
 
     def resolve_all(self, tokens: list[str]) -> tuple[list[Contact], list[str]]:
         """Resolve many tokens, de-duplicating by address.

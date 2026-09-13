@@ -119,6 +119,34 @@ See `contacts.example.json` for the file format, including groups. **Commit
 
 ---
 
+## Arabic voice notes
+
+Send the note in Arabic; the email goes out in formal English.
+
+Claude translates meaning into English business register — Arabic directness
+that would read as aggressive in English gets softened into ordinary courtesy,
+while the substance is left alone. A deadline stays a deadline and a complaint
+stays a complaint; only the tone changes. Numbers, dates, names and amounts
+pass through exactly as spoken, and nothing is added that you did not say.
+When something is softened, Claude says so, so you can ask for it firmer.
+
+Two things to know:
+
+- **Recipients are not guessed from Arabic.** Attached prepositions and dialect
+  make that unreliable, and a wrong recipient cannot be recalled — so Claude
+  reads the note and confirms who it is for rather than letting a parser guess.
+- **Contacts are bilingual.** Store both spellings once and either language
+  finds the person:
+
+  ```bash
+  python3 -m pmail contacts add --key sara-remax --name "Sara Diaz" \
+    --email sara.diaz@remax.example \
+    --company "RE/MAX" --company-aliases "ريماكس" --aliases "سارة"
+  ```
+
+  Then `سارة من ريماكس`, `سارة ريماكس` and `Sara from RE/MAX` all resolve to
+  her. Arabic-Indic digits fold too, so `بت٦٨` matches `بت68`.
+
 ## Using it
 
 Just send the voice note in chat. Claude handles the rest and shows you a draft

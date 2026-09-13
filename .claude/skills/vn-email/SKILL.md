@@ -46,7 +46,68 @@ user verbatim; do not pick for them.
 
 Commit `contacts.json` afterwards, or the next session will not know them.
 
-**4. Write the email yourself.**
+**3b. Arabic voice notes.**
+Notes usually arrive in Arabic (Egyptian dialect). Two things change:
+
+*Routing is yours to read, not the parser's.* The parser does not extract
+recipients from Arabic — attached prepositions ("لسارة" = "to Sara") and
+dialect make it unreliable, and a wrong recipient cannot be recalled. It flags
+the note instead. Read the Arabic, work out who it is for, and pass `--to`
+explicitly. If a name is unclear, ask; never route on a guess.
+
+*Contacts are bilingual.* Store the Arabic spelling as an alias and the Arabic
+company name in `--company-aliases`, so the same person resolves either way:
+
+```bash
+python3 -m pmail contacts add --key sara-remax --name "Sara Diaz" \
+  --email sara.diaz@remax.example \
+  --company "RE/MAX" --company-aliases "ريماكس" --aliases "سارة"
+```
+
+**4. Write the email yourself — in English.**
+
+The note is Arabic; the email is formal English. You are translating meaning
+into a different register, not swapping words.
+
+**Tone.** Arabic business speech is direct in ways that read as aggressive in
+English. Imperatives, flat statements of fault and bare demands all need
+softening into standard English business courtesy:
+
+| Arabic | Literal — too blunt | Send this instead |
+| --- | --- | --- |
+| لازم تبعت الملف النهاردة | "You must send the file today." | "Could you please send the file today?" |
+| ده مش مقبول | "This is not acceptable." | "I'm afraid this doesn't work for us as it stands." |
+| انت متأخر | "You are late." | "We haven't received this yet — could you share an update on timing?" |
+| عايز الرد بسرعة | "I want a reply quickly." | "A reply at your earliest convenience would be appreciated." |
+| مش فاهم قصدك | "I don't understand you." | "Could you clarify what you mean here?" |
+| كلمني | "Call me." | "Could you give me a call when you have a moment?" |
+| يا ريت تراجع ده | "I wish you review this." | "It would be great if you could review this." |
+
+Religious and conversational fillers (إن شاء الله، بإذن الله، والله) do not
+belong in an English business email. Drop them, or render the intent plainly
+("we expect to", "hopefully"). Arabic emphasis by repetition becomes one
+firm English sentence, not three.
+
+**Soften the register, never the substance.** This is the line that matters. A
+deadline stays a deadline, a complaint stays a complaint, a refusal stays a
+refusal. "ده مش مقبول" becomes politer wording of the same rejection — not a
+vague noise that leaves the reader thinking everything is fine. Politeness that
+loses the message is a worse translation than bluntness.
+
+**Facts pass through untouched.** Numbers, amounts, dates, names, file names,
+project names: exactly as said. Never add a commitment, apology, deadline or
+pleasantry that was not in the note — "I'll get back to you tomorrow" is a
+promise, and it is not yours to make.
+
+**When the audio is unclear**, especially on a name, a figure or a date, ask.
+Do not smooth over a word you did not catch.
+
+**Flag what you softened.** When you show the draft, say in one line what you
+toned down, so the user can put the force back if they meant it:
+"Softened 'ده مش مقبول' to 'this doesn't work for us as it stands' — say the
+word if you want it firmer."
+
+The subject line is English and follows the house format like any other.
 
 Every subject must read `[Bit68 - <project>] - <title>`, with `Internal` in
 the project slot for internal mail. Do not hand-type the prefix — pass
@@ -78,7 +139,9 @@ Add `--to/--cc/--bcc` to override the parsed routing, `--attach` for files,
 
 **5. Show it and ask.**
 Print the preview in chat — From, To, Cc, Bcc, Subject, full body — and ask
-for explicit approval. Surface every `!` warning the tool printed, especially
+for explicit approval. For an Arabic note the user is approving a translation
+as well as an email, so the full English body matters more than ever: show it
+in full, never summarised. Surface every `!` warning the tool printed, especially
 "named in the voice note but is not a recipient". Adjust with
 `python3 -m pmail draft edit <id> --subject ... --body-file ...` and show it
 again. Repeat until they approve.

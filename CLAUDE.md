@@ -19,6 +19,16 @@ From a **cloud session** SMTP is impossible — the sandbox routes only HTTPS, s
 an app password works fine. `python3 -m pmail doctor --live` checks the network
 path first and prints the fix; trust it rather than retrying a hanging send.
 
+## Arabic voice notes
+
+Notes arrive in Arabic (Egyptian dialect); emails go out in formal English.
+Translate meaning into English business register — soften imperatives and blunt
+constructions, but never soften the substance, and never add a commitment that
+was not said. Routing is NOT parsed from Arabic: read the note yourself and
+pass `--to` explicitly. Contacts carry Arabic aliases and `company_aliases`, so
+"سارة من ريماكس" and "Sara from RE/MAX" reach the same person. Full guidance in
+`.claude/skills/vn-email/SKILL.md`.
+
 ## Subject convention
 
 Every outgoing subject reads `[Bit68 - <project>] - <title>`, with `Internal`
